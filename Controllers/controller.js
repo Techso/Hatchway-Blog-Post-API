@@ -3,6 +3,7 @@ const { query } = require("express");
 const { result } = require("lodash");
 const lodash = require("lodash");
 const redis = require("redis");
+const helper = require("../helperMethods");
 
 //configure redis for caching function
 const client = redis.createClient({
@@ -11,6 +12,27 @@ const client = redis.createClient({
 client.on("error", (error) => console.error(error));
 
 /***helper methods***/
+
+/*// function to validate sortBy parameter
+function isSortByValid(sortParameter) {
+	allowedParameters = ["id", "likes", "reads", "popularity"];
+
+	if (allowedParameters.Includes(sortParameter)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+// function to validate direction parameter
+function isDirectionValid(direction) {
+	allowedDirections = ["asc", "desc"];
+	if (allowedDirections.Includes(direction)) {
+		return true;
+	} else {
+		return false;
+	}
+}
 
 // function to split and trim tags from query
 function splitTags(tags) {
@@ -22,45 +44,42 @@ function splitTags(tags) {
 
 	return tokens;
 }
-// function to sort posts by likes
-function sortPostsByLikes(unsortedPosts, direction) {
-	if (direction == "asc") {
-		unsortedPosts.sort((a, b) => (a.likes > b.likes ? 1 : -1));
-	} else {
-		unsortedPosts.sort((a, b) => (a.likes > b.likes ? -1 : 1));
-	}
+// function to sort posts by any valid parameter and specified direction
+function sortPosts(unsortedPosts, sortParameter, direction) {
+	if (sortParameter == "likes") {
+		if (direction == "asc") {
+			unsortedPosts.sort((a, b) => (a.likes > b.likes ? 1 : -1));
+		} else {
+			unsortedPosts.sort((a, b) => (a.likes > b.likes ? -1 : 1));
+		}
 
-	return unsortedPosts;
-}
-
-// function to sort posts by ID
-function sortPostsById(unsortedPosts, direction) {
-	if (direction == "asc") {
-		unsortedPosts.sort((a, b) => (a.id > b.id ? 1 : -1));
+		return unsortedPosts;
+	} else if (sortParameter == "id") {
+		if (direction == "asc") {
+			unsortedPosts.sort((a, b) => (a.id > b.id ? 1 : -1));
+		} else {
+			unsortedPosts.sort((a, b) => (a.id > b.id ? -1 : 1));
+		}
+		return unsortedPosts;
+	} else if (sortParameter == "reads") {
+		if (direction == "asc") {
+			unsortedPosts.sort((a, b) => (a.reads > b.reads ? 1 : -1));
+		} else {
+			unsortedPosts.sort((a, b) => (a.reads > b.reads ? -1 : 1));
+		}
+		return unsortedPosts;
 	} else {
-		unsortedPosts.sort((a, b) => (a.id > b.id ? -1 : 1));
+		if (direction == "asc") {
+			unsortedPosts.sort((a, b) =>
+				a.popularity > b.popularity ? 1 : -1
+			);
+		} else {
+			unsortedPosts.sort((a, b) =>
+				a.popularity > b.popularity ? -1 : 1
+			);
+		}
+		return unsortedPosts;
 	}
-	return unsortedPosts;
-}
-
-// function to sort posts by popularity
-function sortPostsByPopularity(unsortedPosts, direction) {
-	if (direction == "asc") {
-		unsortedPosts.sort((a, b) => (a.popularity > b.popularity ? 1 : -1));
-	} else {
-		unsortedPosts.sort((a, b) => (a.popularity > b.popularity ? -1 : 1));
-	}
-	return unsortedPosts;
-}
-
-// function to sort posts by reads
-function sortPostsByReads(unsortedPosts, direction) {
-	if (direction == "asc") {
-		unsortedPosts.sort((a, b) => (a.reads > b.reads ? 1 : -1));
-	} else {
-		unsortedPosts.sort((a, b) => (a.reads > b.reads ? -1 : 1));
-	}
-	return unsortedPosts;
 }
 
 // function to merge posts from all requests and remove duplicate
@@ -82,23 +101,18 @@ function mergePosts(oldPosts, newPosts) {
 	}
 
 	return oldPosts;
-}
+}*/
 
 // controller method for /api/posts endpoint
 exports.Posts = async (req, res) => {
-	var sortBy = req.query.sortBy;
-	var direction = req.query.direction;
+	var sortByParameter = req.query.sortBy;
+	var directionParameter = req.query.direction;
 
-	if (
-		sortBy != "id" ||
-		sortBy != "reads" ||
-		sortBy != "likes" ||
-		sortBy != "popularity"
-	) {
+	if (!helper.isSortByValid(sortByParameter)) {
 		res.status(400).send({
 			error: "sortBy parameter is invalid",
 		});
-	} else if (direction != "desc" || direction != "asc") {
+	} else if (!helper.isDirectionValid(directionParameter)) {
 		res.status(400).send({
 			error: "direction parameter is invalid",
 		});
@@ -116,7 +130,7 @@ exports.Posts = async (req, res) => {
 					let posts = [];
 
 					// retrieve and filter all the tags from the URL
-					const tags = splitTags(req.query.tags);
+					const tags = helper.splitTags(req.query.tags);
 
 					// This block makes concurrent API calls with all the tags
 					const requests = tags.map((tag) =>
@@ -132,29 +146,19 @@ exports.Posts = async (req, res) => {
 
 						// posts are ready. accumulate all the posts without duplicates
 						result.map((item) => {
-							posts = mergePosts(posts, item.data.posts);
+							posts = helper.mergePosts(posts, item.data.posts);
 						});
 					} catch (err) {
 						res.status(500).json({ error: String(err) });
 					}
 
-					if (sortBy == "id") {
-						data = sortPostsById(posts, direction);
-						client.setex(query, 600, data);
-						return res.send({ posts: data });
-					} else if (sortBy == "reads") {
-						data = sortPostsByReads(posts, direction);
-						client.setex(query, 600, data);
-						return res.send({ posts: data });
-					} else if (sortBy == "likes") {
-						data = sortPostsByLikes(posts, direction);
-						client.setex(query, 600, data);
-						return res.send({ posts: data });
-					} else if (sortBy == "popularity") {
-						data = sortPostsByPopularity(posts, direction);
-						client.setex(query, 600, data);
-						return res.send({ posts: data });
-					}
+					data = helper.sortPosts(
+						posts,
+						sortByParameter,
+						directionParameter
+					);
+					client.setex(query, 600, data);
+					return res.send({ posts: data });
 				}
 			});
 		} catch (error) {}
