@@ -1,6 +1,6 @@
 # BLOG POST API
 
-## A Node and express that fetches post by tags from a remote API
+## A Node and express API that fetches post by tags from a remote API
 
 Author: Faith Adeoti
 Email: stevenlarex@gmail.com
