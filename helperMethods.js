@@ -78,7 +78,7 @@ exports.mergePosts = (oldPosts, newPosts) => {
 		isInArray = false;
 
 		for (let j = 0; j < oldPosts.length; j++) {
-			if (lodash.isEqual(oldPosts[j], newPosts[i])) {
+			if (lodash.isEqual(oldPosts[j].id, newPosts[i].id)) {
 				isInArray = true;
 				break;
 			}
