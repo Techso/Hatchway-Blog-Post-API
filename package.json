@@ -1,0 +1,23 @@
+{
+	"name": "json-api",
+	"version": "1.0.0",
+	"description": "",
+	"main": "server.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"start": "nodemon server.js"
+	},
+	"author": "Adeoti Faith",
+	"license": "ISC",
+	"dependencies": {
+		"axios": "^0.21.4",
+		"body-parser": "^1.19.0",
+		"cors": "^2.8.5",
+		"express": "^4.17.1",
+		"lodash": "^4.17.21",
+		"redis": "^3.1.2"
+	},
+	"devDependencies": {
+		"nodemon": "^2.0.13"
+	}
+}
