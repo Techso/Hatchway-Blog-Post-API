@@ -30,8 +30,5 @@ The project also implements caching using redis to set the response for a reques
 -   install redis in the machine and run redis-server to start redis server
 -   run "npm start"
 
-## Special Note
-
-I will like to bring to your notice that I still was not able to access the remote API needed for this assessment, However I tested this solution with another API that I wrote to simulate the remote API hence I sincerely hope that this will be considered in assessing my solution. Thank you I look forward to learning greater things and working with you. Cheers!
 
 [git-repo-url]: https://github.com/Techso
