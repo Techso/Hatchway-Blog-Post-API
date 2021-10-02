@@ -5,9 +5,9 @@ const lodash = require("lodash");
 
 // function to validate sortBy parameter
 exports.isSortByValid = (sortParameter) => {
-	allowedParameters = ["id", "likes", "reads", "popularity"];
+	var allowedParameters = new Array("id", "likes", "reads", "popularity");
 
-	if (allowedParameters.Includes(sortParameter)) {
+	if (allowedParameters.includes(sortParameter)) {
 		return true;
 	} else {
 		return false;
@@ -16,8 +16,8 @@ exports.isSortByValid = (sortParameter) => {
 
 // function to validate direction parameter
 exports.isDirectionValid = (direction) => {
-	allowedDirections = ["asc", "desc"];
-	if (allowedDirections.Includes(direction)) {
+	var allowedDirections = new Array("asc", "desc");
+	if (allowedDirections.includes(direction)) {
 		return true;
 	} else {
 		return false;
