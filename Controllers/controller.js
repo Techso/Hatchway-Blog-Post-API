@@ -1,113 +1,13 @@
 const axios = require("axios");
-const { query } = require("express");
-const { result } = require("lodash");
 const lodash = require("lodash");
-const redis = require("redis");
+const cacheClient = require("../cacheManager");
 const helper = require("../helperMethods");
-
-//configure redis for caching function
-const client = redis.createClient({
-	port: 6379,
-});
-client.on("error", (error) => console.error(error));
-
-/***helper methods***/
-
-/*// function to validate sortBy parameter
-function isSortByValid(sortParameter) {
-	allowedParameters = ["id", "likes", "reads", "popularity"];
-
-	if (allowedParameters.Includes(sortParameter)) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-// function to validate direction parameter
-function isDirectionValid(direction) {
-	allowedDirections = ["asc", "desc"];
-	if (allowedDirections.Includes(direction)) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
-// function to split and trim tags from query
-function splitTags(tags) {
-	const tokens = tags.split(",");
-
-	for (let i = 0; i < tokens.length; i++) {
-		tokens[i] = tokens[i].trim();
-	}
-
-	return tokens;
-}
-// function to sort posts by any valid parameter and specified direction
-function sortPosts(unsortedPosts, sortParameter, direction) {
-	if (sortParameter == "likes") {
-		if (direction == "asc") {
-			unsortedPosts.sort((a, b) => (a.likes > b.likes ? 1 : -1));
-		} else {
-			unsortedPosts.sort((a, b) => (a.likes > b.likes ? -1 : 1));
-		}
-
-		return unsortedPosts;
-	} else if (sortParameter == "id") {
-		if (direction == "asc") {
-			unsortedPosts.sort((a, b) => (a.id > b.id ? 1 : -1));
-		} else {
-			unsortedPosts.sort((a, b) => (a.id > b.id ? -1 : 1));
-		}
-		return unsortedPosts;
-	} else if (sortParameter == "reads") {
-		if (direction == "asc") {
-			unsortedPosts.sort((a, b) => (a.reads > b.reads ? 1 : -1));
-		} else {
-			unsortedPosts.sort((a, b) => (a.reads > b.reads ? -1 : 1));
-		}
-		return unsortedPosts;
-	} else {
-		if (direction == "asc") {
-			unsortedPosts.sort((a, b) =>
-				a.popularity > b.popularity ? 1 : -1
-			);
-		} else {
-			unsortedPosts.sort((a, b) =>
-				a.popularity > b.popularity ? -1 : 1
-			);
-		}
-		return unsortedPosts;
-	}
-}
-
-// function to merge posts from all requests and remove duplicate
-function mergePosts(oldPosts, newPosts) {
-	for (let i = 0; i < newPosts.length; i++) {
-		isInArray = false;
-
-		for (let j = 0; j < oldPosts.length; j++) {
-			if (lodash.isEqual(oldPosts[j], newPosts[i])) {
-				isInArray = true;
-				break;
-			}
-		}
-
-		// add a post to old posts only if it already has not added
-		if (!isInArray) {
-			oldPosts.push(newPosts[i]);
-		}
-	}
-
-	return oldPosts;
-}*/
 
 // controller method for /api/posts endpoint
 exports.Posts = async (req, res) => {
 	var sortByParameter = req.query.sortBy;
 	var directionParameter = req.query.direction;
-
+	// SortBy parameter and Directio parameter validation
 	if (!helper.isSortByValid(sortByParameter)) {
 		res.status(400).send({
 			error: "sortBy parameter is invalid",
@@ -118,18 +18,26 @@ exports.Posts = async (req, res) => {
 		});
 	} else {
 		try {
-			const query = req.query;
-			client.get(query, async (err, posts) => {
+			// converts query object to string and set as cache key
+			const cacheKey = JSON.stringify(req.query);
+			// get result for query from cache
+			cacheClient.get(cacheKey, async (err, posts) => {
 				if (err) throw err;
 
 				if (posts) {
 					res.status(200).send({
-						posts: posts,
+						posts: JSON.parse(posts),
 					});
 				} else {
+					if (!req.query.tags) {
+						res.status(400).send({
+							error: "Tags parameter is required",
+						});
+					}
 					let posts = [];
 
-					// retrieve and filter all the tags from the URL
+					/* retrieve and filter all the tags from the 
+					   URL using splitTags helper methods*/
 					const tags = helper.splitTags(req.query.tags);
 
 					// This block makes concurrent API calls with all the tags
@@ -144,7 +52,8 @@ exports.Posts = async (req, res) => {
 						// wait until all the api calls resolves
 						const result = await Promise.all(requests);
 
-						// posts are ready. accumulate all the posts without duplicates
+						/*merges all the posts from each result without 
+						  duplicates using mergePosts helper method*/
 						result.map((item) => {
 							posts = helper.mergePosts(posts, item.data.posts);
 						});
@@ -152,12 +61,15 @@ exports.Posts = async (req, res) => {
 						res.status(500).json({ error: String(err) });
 					}
 
+					// sort post using sortPosts helper method
 					data = helper.sortPosts(
 						posts,
 						sortByParameter,
 						directionParameter
 					);
-					client.setex(query, 600, data);
+
+					// set result in cache
+					cacheClient.setex(cacheKey, 600, JSON.stringify(data));
 					return res.send({ posts: data });
 				}
 			});
